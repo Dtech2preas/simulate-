@@ -857,8 +857,13 @@
     }
 
     // --- Dynamic Framerate & Quality Transmission Loop with Zero-Latency Dropping ---
+    let isEncodingFrame = false;
+
     function sendSingleFrame() {
         if (!dataChannel || dataChannel.readyState !== 'open') return;
+
+        // Prevent overlapping async canvas.toBlob encodings that cause packet bunching & glitches
+        if (isEncodingFrame) return;
 
         // ZERO-LATENCY BUFFER CONTROL:
         // If dataChannel has queued up unsent data (network congested), DROP this frame
@@ -869,8 +874,12 @@
             return;
         }
 
+        isEncodingFrame = true;
         canvas.toBlob((blob) => {
-            if (!blob || !dataChannel || dataChannel.readyState !== 'open') return;
+            if (!blob || !dataChannel || dataChannel.readyState !== 'open') {
+                isEncodingFrame = false;
+                return;
+            }
             blob.arrayBuffer().then((buffer) => {
                 try {
                     dataChannel.send(buffer);
@@ -880,7 +889,11 @@
                     frameSizeEst.textContent = `Avg Frame: ~${Math.round(buffer.byteLength / 1024 * 10) / 10} KB • Zero-Latency Buffer Policy: Active`;
                 } catch(e) {
                     console.error("DataChannel send error:", e);
+                } finally {
+                    isEncodingFrame = false;
                 }
+            }).catch(() => {
+                isEncodingFrame = false;
             });
         }, 'image/jpeg', jpegQuality);
     }
