@@ -866,9 +866,8 @@
         if (isEncodingFrame) return;
 
         // ZERO-LATENCY BUFFER CONTROL:
-        // If dataChannel has queued up unsent data (network congested), DROP this frame
-        // so the video never lags behind real time!
-        if (dataChannel.bufferedAmount > 65536) { // 64 KB queue threshold
+        // Allow adequate transport queue headroom (256 KB) so network jitter doesn't drop frames prematurely
+        if (dataChannel.bufferedAmount > 262144) { // 256 KB queue threshold
             droppedFrames++;
             statFrames.textContent = `${framesSent} (${droppedFrames})`;
             return;
