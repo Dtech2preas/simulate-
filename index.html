@@ -537,6 +537,7 @@
     </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
 <script>
     // --- Global Configuration ---
     const FIREBASE_BASE_URL = "https://dtech-f2823-default-rtdb.firebaseio.com/signaling";
@@ -749,27 +750,34 @@
     let lastMotionCheckTime = 0;
 
     async function computeHmac(keyStr, dataStr) {
-        try {
-            const encoder = new TextEncoder();
-            const cryptoKey = await window.crypto.subtle.importKey(
-                'raw',
-                encoder.encode(keyStr),
-                { name: 'HMAC', hash: 'SHA-256' },
-                false,
-                ['sign']
-            );
-            const signatureBuffer = await window.crypto.subtle.sign(
-                'HMAC',
-                cryptoKey,
-                encoder.encode(dataStr)
-            );
-            return Array.from(new Uint8Array(signatureBuffer))
-                .map(b => b.toString(16).padStart(2, '0'))
-                .join('');
-        } catch (e) {
-            console.error("HMAC computation error:", e);
-            return "";
+        if (typeof CryptoJS !== 'undefined') {
+            try {
+                return CryptoJS.HmacSHA256(dataStr, keyStr).toString(CryptoJS.enc.Hex);
+            } catch (e) {}
         }
+        if (window.crypto && window.crypto.subtle) {
+            try {
+                const encoder = new TextEncoder();
+                const cryptoKey = await window.crypto.subtle.importKey(
+                    'raw',
+                    encoder.encode(keyStr),
+                    { name: 'HMAC', hash: 'SHA-256' },
+                    false,
+                    ['sign']
+                );
+                const signatureBuffer = await window.crypto.subtle.sign(
+                    'HMAC',
+                    cryptoKey,
+                    encoder.encode(dataStr)
+                );
+                return Array.from(new Uint8Array(signatureBuffer))
+                    .map(b => b.toString(16).padStart(2, '0'))
+                    .join('');
+            } catch (e) {
+                console.error("HMAC computation error:", e);
+            }
+        }
+        return "";
     }
 
     async function triggerMotionEvent(reason = "Sensor Triggered") {
@@ -945,8 +953,8 @@
                     handledRequestKeys.add(key);
                     const req = data[key];
                     if (req && req.viewerId) {
-                        // 1. Anti-Replay: Ignore requests older than 60 seconds
-                        if (req.timestamp && Math.abs(now - req.timestamp) > 60000) {
+                        // 1. Anti-Replay: Tolerate up to 5 minutes (300 seconds) of clock skew between devices
+                        if (req.timestamp && Math.abs(now - req.timestamp) > 300000) {
                             log(`[POLL] Ignored expired session request (${req.viewerId}, age: ${Math.round((now - req.timestamp)/1000)}s)`, 'warn');
                             continue;
                         }
@@ -954,7 +962,7 @@
                         // 2. Proof-of-Possession Authentication (PoP HMAC verification)
                         const expectedHash = await computeHmac("dtech_sim_test_key_camera_123_sec", `${req.viewerId}:${req.timestamp}`);
                         if (req.authHash !== expectedHash) {
-                            log(`🚨 [LOBBY SECURITY] Rejected unauthorized join request from '${req.viewerId}'! (Invalid PoP authHash - active session untouched)`, 'warn');
+                            log(`🚨 [LOBBY SECURITY] Rejected unauthorized join request from '${req.viewerId}'! (PoP HMAC mismatch - active session untouched)`, 'warn');
                             continue;
                         }
 
@@ -987,24 +995,36 @@
             { urls: 'stun:stun.cloudflare.com:3478' }
         ];
 
-        try {
-            log('[TURN] Fetching dynamic Cloudflare TURN fallback credentials from worker...', 'info');
-            const res = await fetch('https://host.dtech-services.co.za/?json=true', {
-                cache: 'no-store',
-                headers: { 'X-DTech-Client': 'camera-viewer' }
-            });
-            if (res.ok) {
-                const data = await res.json();
-                if (data && data.iceServers) {
-                    const cfServers = Array.isArray(data.iceServers) ? data.iceServers : [data.iceServers];
-                    // Direct STUN first (highest priority, saves 100% relay bandwidth)
-                    cachedIceServers = [...defaultStun, ...cfServers];
-                    log('[TURN] ✓ Cloudflare TURN fallback loaded. Direct STUN prioritized (saves relay bandwidth).', 'success');
-                    return cachedIceServers;
+        const endpoints = [
+            'https://host.dtech-services.co.za/?json=true',
+            'https://white-brook-646c.dtech2j.workers.dev/?json=true'
+        ];
+
+        for (const endpoint of endpoints) {
+            try {
+                const isFailover = endpoint.includes('workers.dev');
+                log(`[TURN] Fetching dynamic Cloudflare TURN credentials (${isFailover ? 'failover route' : 'primary'})...`, 'info');
+                const res = await fetch(endpoint, {
+                    cache: 'no-store',
+                    headers: { 'X-DTech-Client': 'camera-viewer' }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && data.iceServers) {
+                        const cfServers = Array.isArray(data.iceServers) ? data.iceServers : [data.iceServers];
+                        // Prioritize STUN for direct P2P, with Cloudflare TURN relay as reliable fallback
+                        cachedIceServers = [...defaultStun, ...cfServers];
+                        const turnCount = cfServers.filter(s => {
+                            const u = Array.isArray(s.urls) ? s.urls : [s.urls || ''];
+                            return u.some(url => url.startsWith('turn:') || url.startsWith('turns:'));
+                        }).length;
+                        log(`[TURN] ✓ Loaded ${turnCount > 0 ? 'Cloudflare TURN relay (' + turnCount + ' pools)' : 'fallback STUN'}! Status: ${data.turnStatus || 'Active'}`, 'success');
+                        return cachedIceServers;
+                    }
                 }
+            } catch(e) {
+                log(`[TURN] ⚠️ Route note (${endpoint}): ${e.message}`, 'warn');
             }
-        } catch(e) {
-            log(`[TURN] ⚠️ Could not fetch Cloudflare TURN (${e.message}). Falling back to STUN servers.`, 'warn');
         }
 
         cachedIceServers = defaultStun;
@@ -1054,8 +1074,7 @@
 
         const iceServers = await getIceServers();
         const pc = new RTCPeerConnection({
-            iceServers: iceServers,
-            iceCandidatePoolSize: 10
+            iceServers: iceServers
         });
         peerConnection = pc;
 
@@ -1084,8 +1103,9 @@
                     candidate: cand.candidate,
                     senderId: cameraId
                 };
+                const candKey = `${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
                 try {
-                    await fetch(`${FIREBASE_BASE_URL}/${viewerId}_responses/${Date.now()}.json`, {
+                    await fetch(`${FIREBASE_BASE_URL}/${viewerId}_responses/${candKey}.json`, {
                         method: 'PUT',
                         body: JSON.stringify(candidateMsg)
                     });
