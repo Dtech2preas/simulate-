@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>D-TECH ESP32-S3 Camera Simulator</title>
@@ -740,7 +739,113 @@
             lastFpsTime = nowMs;
         }
 
+        checkOpticalMotion();
         requestAnimationFrame(renderSyntheticFrame);
+    }
+
+    // --- Optical Motion Detection Engine ---
+    let lastMotionTriggerTime = 0;
+    let lastSampleData = null;
+    let lastMotionCheckTime = 0;
+
+    async function computeHmac(keyStr, dataStr) {
+        try {
+            const encoder = new TextEncoder();
+            const cryptoKey = await window.crypto.subtle.importKey(
+                'raw',
+                encoder.encode(keyStr),
+                { name: 'HMAC', hash: 'SHA-256' },
+                false,
+                ['sign']
+            );
+            const signatureBuffer = await window.crypto.subtle.sign(
+                'HMAC',
+                cryptoKey,
+                encoder.encode(dataStr)
+            );
+            return Array.from(new Uint8Array(signatureBuffer))
+                .map(b => b.toString(16).padStart(2, '0'))
+                .join('');
+        } catch (e) {
+            console.error("HMAC computation error:", e);
+            return "";
+        }
+    }
+
+    async function triggerMotionEvent(reason = "Sensor Triggered") {
+        const now = Date.now();
+        if (now - lastMotionTriggerTime < 60000) return; // 60-second hardware cooldown
+        lastMotionTriggerTime = now;
+
+        log(`🚨 [MOTION DETECTED] ${reason}! Transmitting alert to phone...`, 'warn');
+        playBeep(1500, 0.3);
+
+        viewerAlertBanner.style.display = 'block';
+        viewerAlertBanner.style.backgroundColor = '#da3633';
+        viewerAlertBanner.textContent = `🚨 INTRUSION / MOTION DETECTED!`;
+        setTimeout(() => { viewerAlertBanner.style.display = 'none'; }, 3500);
+
+        if (dataChannel && dataChannel.readyState === 'open') {
+            try {
+                dataChannel.send("EVENT:MOTION_DETECTED");
+                log("[DATACHANNEL] ➔ Dispatched 'EVENT:MOTION_DETECTED' alert over DataChannel.", 'success');
+            } catch(e) {}
+        }
+
+        // Dispatch High-Priority Cryptographically Signed Google FCM Push Notification
+        const alertBody = `Motion detected at ${cameraId.toUpperCase()}!`;
+        const dataToSign = `${cameraId}:${now}:${alertBody}`;
+        const signature = await computeHmac("dtech_sim_test_key_camera_123_sec", dataToSign);
+
+        fetch('https://host.dtech-services.co.za/notify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                cameraId: cameraId,
+                timestamp: now,
+                signature: signature,
+                title: '🚨 D-TECH INTRUSION ALERT',
+                body: alertBody
+            })
+        }).then(res => res.json()).then(data => {
+            if (data.success) {
+                log(`[FCM PUSH] ✓ Dispatched Google push notification to phone!`, 'success');
+            } else {
+                log(`[FCM PUSH] Response note: ${data.error || 'Check server status'}`, 'info');
+            }
+        }).catch(err => {
+            log(`[FCM PUSH] ⚠️ Notification dispatch: ${err.message}`, 'info');
+        });
+    }
+
+    function checkOpticalMotion() {
+        if (!isArmed) return;
+        const now = Date.now();
+        if (now - lastMotionCheckTime < 350) return; // Sample ~3 times/second
+        lastMotionCheckTime = now;
+
+        try {
+            const sampleCanvas = document.createElement('canvas');
+            sampleCanvas.width = 16;
+            sampleCanvas.height = 12;
+            const sampleCtx = sampleCanvas.getContext('2d');
+            sampleCtx.drawImage(canvas, 0, 0, 16, 12);
+            const currentData = sampleCtx.getImageData(0, 0, 16, 12).data;
+
+            if (lastSampleData) {
+                let diff = 0;
+                for (let i = 0; i < currentData.length; i += 4) {
+                    diff += Math.abs(currentData[i] - lastSampleData[i]) +
+                            Math.abs(currentData[i+1] - lastSampleData[i+1]) +
+                            Math.abs(currentData[i+2] - lastSampleData[i+2]);
+                }
+                // When armed, if significant optical change occurs (movement across field of view)
+                if (diff > 1600) {
+                    triggerMotionEvent(isWebcam ? "Webcam Optical Motion" : "Simulated Sensor Movement");
+                }
+            }
+            lastSampleData = currentData;
+        } catch(e) {}
     }
 
     // --- Dynamic Framerate & Quality Transmission Loop with Zero-Latency Dropping ---
@@ -840,18 +945,26 @@
                     handledRequestKeys.add(key);
                     const req = data[key];
                     if (req && req.viewerId) {
-                        // Ignore stale requests older than 45 seconds from previous tests!
-                        if (req.timestamp && Math.abs(now - req.timestamp) > 45000) {
-                            log(`[POLL] Ignored stale session request (${req.viewerId}, age: ${Math.round((now - req.timestamp)/1000)}s)`, 'warn');
+                        // 1. Anti-Replay: Ignore requests older than 60 seconds
+                        if (req.timestamp && Math.abs(now - req.timestamp) > 60000) {
+                            log(`[POLL] Ignored expired session request (${req.viewerId}, age: ${Math.round((now - req.timestamp)/1000)}s)`, 'warn');
                             continue;
                         }
 
+                        // 2. Proof-of-Possession Authentication (PoP HMAC verification)
+                        const expectedHash = await computeHmac("dtech_sim_test_key_camera_123_sec", `${req.viewerId}:${req.timestamp}`);
+                        if (req.authHash !== expectedHash) {
+                            log(`🚨 [LOBBY SECURITY] Rejected unauthorized join request from '${req.viewerId}'! (Invalid PoP authHash - active session untouched)`, 'warn');
+                            continue;
+                        }
+
+                        log(`[LOBBY SECURITY] ✓ Authorized join request from '${req.viewerId}' verified with PoP HMAC!`, 'success');
                         playViewerAlert();
                         viewerAlertBanner.style.display = 'block';
-                        viewerAlertBanner.textContent = `👁️ VIEWER DETECTED: ${req.viewerId}`;
+                        viewerAlertBanner.textContent = `👁️ AUTHENTICATED VIEWER: ${req.viewerId}`;
                         setTimeout(() => { viewerAlertBanner.style.display = 'none'; }, 4000);
 
-                        log(`🚨 [INCOMING VIEWER] New join request from '${req.viewerId}'!`, 'success');
+                        log(`🚨 [INCOMING VIEWER] New authenticated join request from '${req.viewerId}'!`, 'success');
                         handleNewViewer(req.viewerId);
                     }
                 }
@@ -861,25 +974,88 @@
         }
     }
 
+    let activeCandidatePoller = null;
+    let isHandshakeInProgress = false;
+    let cachedIceServers = null;
+
+    async function getIceServers() {
+        if (cachedIceServers) return cachedIceServers;
+
+        const defaultStun = [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun.cloudflare.com:3478' }
+        ];
+
+        try {
+            log('[TURN] Fetching dynamic Cloudflare TURN fallback credentials from worker...', 'info');
+            const res = await fetch('https://host.dtech-services.co.za/?json=true', {
+                cache: 'no-store',
+                headers: { 'X-DTech-Client': 'camera-viewer' }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (data && data.iceServers) {
+                    const cfServers = Array.isArray(data.iceServers) ? data.iceServers : [data.iceServers];
+                    // Direct STUN first (highest priority, saves 100% relay bandwidth)
+                    cachedIceServers = [...defaultStun, ...cfServers];
+                    log('[TURN] ✓ Cloudflare TURN fallback loaded. Direct STUN prioritized (saves relay bandwidth).', 'success');
+                    return cachedIceServers;
+                }
+            }
+        } catch(e) {
+            log(`[TURN] ⚠️ Could not fetch Cloudflare TURN (${e.message}). Falling back to STUN servers.`, 'warn');
+        }
+
+        cachedIceServers = defaultStun;
+        return defaultStun;
+    }
+
+    async function checkActiveConnectionPair(pc) {
+        try {
+            const stats = await pc.getStats();
+            let selectedPair = null;
+            stats.forEach(report => {
+                if (report.type === 'transport' && report.selectedCandidatePairId) {
+                    selectedPair = stats.get(report.selectedCandidatePairId);
+                } else if (report.type === 'candidate-pair' && (report.selected || report.state === 'succeeded')) {
+                    if (!selectedPair || report.nominated) selectedPair = report;
+                }
+            });
+            if (selectedPair) {
+                const localCand = stats.get(selectedPair.localCandidateId);
+                const remoteCand = stats.get(selectedPair.remoteCandidateId);
+                const isRelayed = (localCand?.candidateType === 'relay' || remoteCand?.candidateType === 'relay');
+                const pathDesc = isRelayed ? '⚠️ CLOUDFLARE TURN RELAY (Used as fallback for strict firewall)' : '⚡ DIRECT STUN P2P (Saved 100% TURN relay bandwidth!)';
+                log(`🎯 [CONNECTION PATH] ${pathDesc} (Local: ${localCand?.candidateType ?? 'unknown'}, Remote: ${remoteCand?.candidateType ?? 'unknown'})`, isRelayed ? 'warn' : 'success');
+            }
+        } catch(e) {}
+    }
+
     async function handleNewViewer(viewerId) {
-        if (activeViewerId === viewerId && peerConnection && peerConnection.connectionState === 'connected') {
-            log(`[WEBRTC] Viewer ${viewerId} is already connected.`, 'info');
+        if (activeViewerId === viewerId && peerConnection && (peerConnection.connectionState === 'connected' || isHandshakeInProgress)) {
+            log(`[WEBRTC] Viewer ${viewerId} handshake or connection is already in progress.`, 'info');
             return;
         }
 
         activeViewerId = viewerId;
+        isHandshakeInProgress = true;
+        if (activeCandidatePoller) {
+            activeCandidatePoller();
+            activeCandidatePoller = null;
+        }
+
         log(`[WEBRTC] Initiating WebRTC Handshake for viewer '${viewerId}'...`, 'info');
 
         if (peerConnection) {
-            peerConnection.close();
+            try { peerConnection.close(); } catch(e) {}
             peerConnection = null;
         }
 
+        const iceServers = await getIceServers();
         const pc = new RTCPeerConnection({
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' }
-            ]
+            iceServers: iceServers,
+            iceCandidatePoolSize: 10
         });
         peerConnection = pc;
 
@@ -899,6 +1075,8 @@
         pc.onicecandidate = async (event) => {
             if (event.candidate) {
                 const cand = event.candidate;
+                const candStr = cand.candidate || '';
+                const candType = candStr.includes(' typ relay ') ? 'relay (TURN Fallback)' : candStr.includes(' typ srflx ') ? 'srflx (Direct STUN)' : 'host (LAN)';
                 const candidateMsg = {
                     type: "candidate",
                     sdpMid: cand.sdpMid,
@@ -911,26 +1089,35 @@
                         method: 'PUT',
                         body: JSON.stringify(candidateMsg)
                     });
-                    log(`[ICE] Sent local candidate (${cand.sdpMid}) to signaling/${viewerId}_responses`, 'info');
+                    log(`[ICE] Local candidate gathered: ${candType} (mid=${cand.sdpMid})`, 'info');
                 } catch(e) {}
             }
+        };
+
+        pc.oniceconnectionstatechange = () => {
+            log(`[ICE] IceConnectionState -> ${pc.iceConnectionState.toUpperCase()}`,
+                (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') ? 'success' :
+                pc.iceConnectionState === 'failed' ? 'err' : 'warn');
         };
 
         pc.onconnectionstatechange = () => {
             log(`[WEBRTC] PeerConnection State -> ${pc.connectionState.toUpperCase()}`, pc.connectionState === 'connected' ? 'success' : 'warn');
             statPeerState.textContent = pc.connectionState.toUpperCase();
             if (pc.connectionState === 'connected') {
+                isHandshakeInProgress = false;
                 statPeerState.style.color = "#3fb950";
                 playBeep(1200, 0.15);
+                checkActiveConnectionPair(pc);
             } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+                isHandshakeInProgress = false;
                 statPeerState.style.color = "#f85149";
             }
         };
 
-        // Poll for viewer's incoming Offer in Firebase
+        // Poll for viewer's incoming Offer in Firebase (up to 30s)
         log(`[SIGNALING] Waiting for WebRTC Offer from signaling/${viewerId}.json...`, 'info');
         let offerFound = false;
-        for (let attempt = 1; attempt <= 20; attempt++) {
+        for (let attempt = 1; attempt <= 60; attempt++) {
             try {
                 const res = await fetch(`${FIREBASE_BASE_URL}/${viewerId}.json`);
                 const messages = await res.json();
@@ -942,6 +1129,44 @@
                             log(`[SIGNALING] ✓ Received SDP Offer from phone! (SDP length: ${item.sdp.length})`, 'success');
                             await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: item.sdp }));
                             log(`[WEBRTC] setRemoteDescription applied. Generating Answer...`, 'info');
+
+                            // Start continuously polling for ICE candidates from the phone
+                            let pollActive = true;
+                            activeCandidatePoller = () => { pollActive = false; };
+                            const handledPhoneCandidateKeys = new Set();
+
+                            (async () => {
+                                log(`[ICE] Actively listening for phone ICE candidates (signaling/${viewerId}.json)...`, 'info');
+                                while (pollActive && peerConnection === pc && pc.connectionState !== 'closed' && pc.connectionState !== 'failed') {
+                                    try {
+                                        const cRes = await fetch(`${FIREBASE_BASE_URL}/${viewerId}.json`);
+                                        if (cRes.ok) {
+                                            const candData = await cRes.json();
+                                            if (candData) {
+                                                for (const cKey of Object.keys(candData)) {
+                                                    if (!handledPhoneCandidateKeys.has(cKey)) {
+                                                        const cItem = candData[cKey];
+                                                        if (cItem && cItem.type === 'candidate' && cItem.candidate) {
+                                                            handledPhoneCandidateKeys.add(cKey);
+                                                            try {
+                                                                await pc.addIceCandidate(new RTCIceCandidate({
+                                                                    candidate: cItem.candidate,
+                                                                    sdpMid: cItem.sdpMid,
+                                                                    sdpMLineIndex: cItem.sdpMLineIndex
+                                                                }));
+                                                                log(`[ICE] ✓ Remote candidate added from phone: ${cItem.candidate.substring(0, 45)}...`, 'info');
+                                                            } catch(candErr) {
+                                                                log(`[ICE] ⚠️ Failed adding candidate: ${candErr.message}`, 'warn');
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    } catch(e) {}
+                                    await new Promise(r => setTimeout(r, 400));
+                                }
+                            })();
 
                             // Generate Answer
                             const answer = await pc.createAnswer();
@@ -970,6 +1195,7 @@
         }
 
         if (!offerFound) {
+            isHandshakeInProgress = false;
             log(`[SIGNALING] ✗ Timed out waiting for Offer from viewer ${viewerId}. Please retry on phone.`, 'err');
         }
     }
@@ -1013,6 +1239,33 @@
                     statAlarmMode.style.color = "#3fb950";
                     log("✓ Motion Detection DISARMED. Normal standby.", 'info');
                     playBeep(600, 0.25);
+                } else if (cmd.startsWith("CMD:CONFIG:")) {
+                    const params = cmd.substring("CMD:CONFIG:".length);
+                    const configMap = {};
+                    params.split(',').forEach(part => {
+                        const [k, v] = part.split('=');
+                        if (k && v) configMap[k.trim()] = v.trim();
+                    });
+
+                    if (configMap.FPS) {
+                        targetFps = parseInt(configMap.FPS, 10);
+                        fpsRange.value = targetFps;
+                        fpsValDisplay.textContent = `${targetFps} FPS`;
+                        document.querySelectorAll('.preset-btn').forEach(b => {
+                            b.classList.toggle('active', parseInt(b.dataset.fps, 10) === targetFps);
+                        });
+                    }
+                    if (configMap.QUALITY) {
+                        jpegQuality = parseInt(configMap.QUALITY, 10) / 100;
+                        qualityRange.value = Math.round(jpegQuality * 100);
+                        qualityValDisplay.textContent = `${Math.round(jpegQuality * 100)}%`;
+                    }
+                    restartStreamTimer();
+                    log(`📱 [PHONE REMOTE CONFIG] Applied: ${configMap.PROFILE ?? 'CUSTOM'} (${targetFps} FPS, ${Math.round(jpegQuality*100)}% Quality)`, 'success');
+                    playBeep(1100, 0.1);
+                    if (dataChannel && dataChannel.readyState === 'open') {
+                        dataChannel.send(`ACK:CONFIG:FPS=${targetFps},QUALITY=${Math.round(jpegQuality*100)}`);
+                    }
                 }
             }
         };
@@ -1084,14 +1337,7 @@
     });
 
     document.getElementById('btnSimulateMotion').addEventListener('click', () => {
-        log("[SENSOR] ⚡ Motion event triggered on simulated sensor!", 'warn');
-        playBeep(1600, 0.15);
-        if (dataChannel && dataChannel.readyState === 'open') {
-            try {
-                dataChannel.send("EVENT:MOTION_DETECTED");
-                log("[DATACHANNEL] Dispatched 'EVENT:MOTION_DETECTED' alert over DataChannel.", 'info');
-            } catch(e) {}
-        }
+        triggerMotionEvent("Manual Button Simulation");
     });
 
     document.getElementById('btnClearLogs').addEventListener('click', () => {
