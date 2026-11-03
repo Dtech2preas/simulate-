@@ -32,19 +32,19 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 24px 16px;
+            padding: 20px 16px;
         }
 
         header {
             text-align: center;
-            margin-bottom: 24px;
-            max-width: 900px;
+            margin-bottom: 16px;
+            max-width: 950px;
             width: 100%;
         }
 
         header h1 {
             color: var(--accent-blue);
-            font-size: 26px;
+            font-size: 24px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -53,8 +53,50 @@
 
         header p {
             color: var(--text-secondary);
-            font-size: 14px;
-            margin-top: 6px;
+            font-size: 13px;
+            margin-top: 4px;
+        }
+
+        /* Top Firebase Connectivity Status Banner */
+        .status-strip {
+            max-width: 1100px;
+            width: 100%;
+            background: #161b22;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 10px 16px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+            font-size: 13px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #d29922;
+            animation: pulse 1.5s infinite;
+        }
+
+        .status-dot.connected {
+            background-color: #3fb950;
+            box-shadow: 0 0 8px #3fb950;
+        }
+
+        .status-dot.error {
+            background-color: #f85149;
+            box-shadow: 0 0 8px #f85149;
         }
 
         .main-layout {
@@ -75,7 +117,7 @@
             background-color: var(--bg-secondary);
             border: 1px solid var(--border-color);
             border-radius: 10px;
-            padding: 20px;
+            padding: 18px;
             box-shadow: 0 8px 24px rgba(0,0,0,0.4);
         }
 
@@ -139,6 +181,20 @@
             animation: flash 1s infinite alternate;
         }
 
+        .viewer-alert-banner {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            padding: 6px 12px;
+            background: rgba(35, 134, 54, 0.9);
+            color: #fff;
+            font-family: monospace;
+            font-size: 11px;
+            font-weight: bold;
+            border-radius: 4px;
+            display: none;
+        }
+
         @keyframes pulse {
             0% { opacity: 0.4; }
             50% { opacity: 1; }
@@ -152,8 +208,8 @@
 
         .controls-row {
             display: flex;
-            gap: 10px;
-            margin-top: 16px;
+            gap: 8px;
+            margin-top: 14px;
             flex-wrap: wrap;
         }
 
@@ -161,10 +217,10 @@
             background-color: var(--bg-tertiary);
             color: var(--text-primary);
             border: 1px solid var(--border-color);
-            padding: 8px 16px;
+            padding: 8px 14px;
             border-radius: 6px;
             cursor: pointer;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 500;
             transition: all 0.2s;
             display: inline-flex;
@@ -187,12 +243,6 @@
             background-color: #2ea043;
         }
 
-        button.danger {
-            background-color: var(--accent-red);
-            color: #fff;
-            border-color: #f85149;
-        }
-
         input[type="text"] {
             background: var(--bg-primary);
             border: 1px solid var(--border-color);
@@ -209,52 +259,52 @@
             flex-direction: column;
             align-items: center;
             text-align: center;
-            padding: 16px;
+            padding: 14px;
             background: var(--bg-tertiary);
             border-radius: 8px;
-            margin-top: 16px;
+            margin-top: 14px;
         }
 
         .qr-box {
             background: #fff;
-            padding: 10px;
+            padding: 8px;
             border-radius: 8px;
-            margin: 12px 0;
+            margin: 10px 0;
             display: inline-block;
         }
 
         .qr-box img {
             display: block;
-            width: 160px;
-            height: 160px;
+            width: 150px;
+            height: 150px;
         }
 
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 12px;
-            margin-top: 16px;
+            gap: 10px;
+            margin-top: 14px;
         }
 
         .stat-item {
             background: var(--bg-tertiary);
-            padding: 12px;
+            padding: 10px;
             border-radius: 6px;
             border: 1px solid var(--border-color);
         }
 
         .stat-label {
-            font-size: 11px;
+            font-size: 10px;
             color: var(--text-secondary);
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
 
         .stat-val {
-            font-size: 18px;
+            font-size: 16px;
             font-weight: bold;
             color: #58a6ff;
-            margin-top: 4px;
+            margin-top: 3px;
             font-family: monospace;
         }
 
@@ -265,15 +315,16 @@
             padding: 12px;
             font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
             font-size: 12px;
-            height: 180px;
+            height: 200px;
             overflow-y: auto;
             color: #7ee787;
-            margin-top: 16px;
+            margin-top: 14px;
         }
 
         .terminal .log-line {
-            margin-bottom: 4px;
+            margin-bottom: 3px;
             word-break: break-all;
+            line-height: 16px;
         }
 
         .terminal .log-warn {
@@ -287,6 +338,11 @@
         .terminal .log-info {
             color: #58a6ff;
         }
+
+        .terminal .log-success {
+            color: #3fb950;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -296,10 +352,23 @@
     <p>Simulating KR105 Vision Dev Kit • Real-Time WebRTC P2P Video & DataChannel Engine</p>
 </header>
 
+<!-- Firebase Realtime Signaling Strip -->
+<div class="status-strip">
+    <div class="status-indicator">
+        <div class="status-dot" id="signalingDot"></div>
+        <span id="signalingStatusText">Testing Firebase Realtime DB connection...</span>
+    </div>
+    <div style="display:flex; gap:8px;">
+        <button id="btnPingFirebase" style="padding:4px 10px; font-size:11px;">
+            🔄 Ping Firebase DB
+        </button>
+    </div>
+</div>
+
 <div class="main-layout">
     <!-- Left Column: Video Feed & Source Switcher -->
     <div class="card">
-        <h3 style="margin-bottom: 12px; color: #58a6ff;">Live Sensor Stream (OV5640 Emulation)</h3>
+        <h3 style="margin-bottom: 10px; color: #58a6ff; font-size: 16px;">Live Sensor Stream (OV5640 Emulation)</h3>
 
         <div class="video-box">
             <canvas id="cameraCanvas" width="640" height="480"></canvas>
@@ -308,6 +377,10 @@
             <div class="video-overlay-badge">
                 <div class="live-dot" id="liveDot"></div>
                 <span id="overlayText">EMULATED SENSOR: 640x480 @ 25 FPS</span>
+            </div>
+
+            <div class="viewer-alert-banner" id="viewerAlertBanner">
+                👁️ VIEWER DETECTED!
             </div>
 
             <div class="armed-banner" id="armedBanner">
@@ -328,24 +401,26 @@
         </div>
 
         <!-- Terminal Logs -->
-        <h4 style="margin-top: 20px; font-size: 13px; color: var(--text-secondary);">Simulated Device Serial Console</h4>
+        <h4 style="margin-top: 16px; font-size: 12px; color: var(--text-secondary); text-transform: uppercase;">
+            Simulated Device Serial Console (Live)
+        </h4>
         <div class="terminal" id="terminalLog">
-            <div class="log-line log-info">[SYSTEM] D-TECH ESP32-S3 Camera Node Simulator initialized.</div>
+            <div class="log-line log-info">[SYSTEM] D-TECH ESP32-S3 Camera Node Simulator starting up...</div>
         </div>
     </div>
 
     <!-- Right Column: Pairing QR, Signaling & Metrics -->
     <div class="card">
-        <h3 style="margin-bottom: 12px; color: #58a6ff;">Device Identity & Android Pairing</h3>
+        <h3 style="margin-bottom: 10px; color: #58a6ff; font-size: 16px;">Device Identity & Android Pairing</h3>
 
-        <label style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Camera Device ID:</label>
+        <label style="font-size: 11px; color: var(--text-secondary); display: block; margin-bottom: 4px;">Camera Device ID:</label>
         <div style="display: flex; gap: 8px;">
             <input type="text" id="cameraIdInput" value="camera_123" spellcheck="false" />
             <button id="btnUpdateCameraId">Update</button>
         </div>
 
         <div class="qr-section">
-            <span style="font-size: 13px; font-weight: 600;">Scan with D-TECH Android Viewer App</span>
+            <span style="font-size: 12px; font-weight: 600;">Scan with D-TECH Android Viewer App</span>
             <div class="qr-box">
                 <img id="qrImage" src="" alt="D-TECH Pairing QR Code" />
             </div>
@@ -357,11 +432,11 @@
         <div class="stats-grid">
             <div class="stat-item">
                 <div class="stat-label">WebRTC Peer State</div>
-                <div class="stat-val" id="statPeerState" style="color: #8b949e; font-size: 15px;">DISCONNECTED</div>
+                <div class="stat-val" id="statPeerState" style="color: #8b949e; font-size: 14px;">DISCONNECTED</div>
             </div>
             <div class="stat-item">
                 <div class="stat-label">DataChannel (dtech-data)</div>
-                <div class="stat-val" id="statDcState" style="color: #8b949e; font-size: 15px;">CLOSED</div>
+                <div class="stat-val" id="statDcState" style="color: #8b949e; font-size: 14px;">CLOSED</div>
             </div>
             <div class="stat-item">
                 <div class="stat-label">Stream Framerate</div>
@@ -377,7 +452,7 @@
             </div>
             <div class="stat-item">
                 <div class="stat-label">Alarm Mode</div>
-                <div class="stat-val" id="statAlarmMode" style="color: #3fb950; font-size: 15px;">DISARMED</div>
+                <div class="stat-val" id="statAlarmMode" style="color: #3fb950; font-size: 14px;">DISARMED</div>
             </div>
         </div>
     </div>
@@ -402,6 +477,7 @@
     let currentFps = 0;
     let fpsCounter = 0;
     let lastFpsTime = Date.now();
+    let pollCount = 0;
 
     // DOM Elements
     const canvas = document.getElementById('cameraCanvas');
@@ -409,11 +485,15 @@
     const webcamVideo = document.getElementById('webcamVideo');
     const terminalEl = document.getElementById('terminalLog');
     const armedBanner = document.getElementById('armedBanner');
+    const viewerAlertBanner = document.getElementById('viewerAlertBanner');
     const liveDot = document.getElementById('liveDot');
     const overlayText = document.getElementById('overlayText');
     const qrImage = document.getElementById('qrImage');
     const qrPayloadText = document.getElementById('qrPayloadText');
     const cameraIdInput = document.getElementById('cameraIdInput');
+
+    const signalingDot = document.getElementById('signalingDot');
+    const signalingStatusText = document.getElementById('signalingStatusText');
 
     const statPeerState = document.getElementById('statPeerState');
     const statDcState = document.getElementById('statDcState');
@@ -435,11 +515,10 @@
     function updateQR(id) {
         const payload = `DTECH_SIM:${id}`;
         qrPayloadText.textContent = payload;
-        // Generate QR code using public reliable QR API with high error correction
         qrImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(payload)}`;
     }
 
-    // --- Audio Feedback for Commands ---
+    // --- Audio Feedback ---
     function playBeep(freq = 880, duration = 0.15) {
         try {
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -455,7 +534,12 @@
         } catch(e) {}
     }
 
-    // --- Synthetic Video Frame Generator (Simulating OV5640 Sensor) ---
+    function playViewerAlert() {
+        playBeep(980, 0.1);
+        setTimeout(() => playBeep(1318, 0.15), 120);
+    }
+
+    // --- Synthetic Video Frame Generator ---
     let frameNumber = 0;
     function renderSyntheticFrame() {
         frameNumber++;
@@ -522,7 +606,7 @@
         }
 
         // Top OSD Header
-        ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+        ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
         ctx.fillRect(0, 0, w, 32);
 
         ctx.fillStyle = "#58a6ff";
@@ -537,7 +621,7 @@
         ctx.fillText(`${timeStr} [FRM #${frameNumber}]`, w - 280, 21);
 
         // Bottom OSD: Security Status
-        ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+        ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
         ctx.fillRect(0, h - 30, w, 30);
 
         if (isArmed) {
@@ -582,54 +666,93 @@
                     console.error("DataChannel send error:", e);
                 }
             });
-        }, 'image/jpeg', 0.65); // 65% quality matches ESP32-S3 PSRAM buffer
-    }, 40); // 40ms = 25 FPS
+        }, 'image/jpeg', 0.65);
+    }, 40);
 
-    // --- Firebase REST Signaling Client ---
+    // --- Firebase REST Signaling & Connectivity Verification ---
+    async function testFirebasePing() {
+        const start = Date.now();
+        signalingStatusText.textContent = "Connecting to Firebase Database...";
+        signalingDot.className = "status-dot";
+        try {
+            const res = await fetch(`${FIREBASE_BASE_URL}/${cameraId}_lobby/status.json`, {
+                method: 'PUT',
+                body: JSON.stringify({ online: true, timestamp: Date.now() })
+            });
+            const latency = Date.now() - start;
+            if (res.ok) {
+                signalingDot.className = "status-dot connected";
+                signalingStatusText.textContent = `Firebase Connected & Listening (Lobby: ${cameraId}, Latency: ${latency}ms)`;
+                log(`[FIREBASE] ✓ Database connected and lobby heartbeat verified (${latency}ms)`, 'success');
+            } else {
+                signalingDot.className = "status-dot error";
+                signalingStatusText.textContent = `Firebase Error: HTTP ${res.status}`;
+                log(`[FIREBASE] ✗ Firebase returned HTTP ${res.status}: ${res.statusText}`, 'err');
+            }
+        } catch(e) {
+            signalingDot.className = "status-dot error";
+            signalingStatusText.textContent = `Firebase Unreachable: ${e.message}`;
+            log(`[FIREBASE] ✗ Failed to connect to Firebase: ${e.message}`, 'err');
+        }
+    }
+
     async function writeHeartbeat() {
         try {
             await fetch(`${FIREBASE_BASE_URL}/${cameraId}_lobby/status.json`, {
                 method: 'PUT',
                 body: JSON.stringify({ online: true, timestamp: Date.now() })
             });
+            log(`[HEARTBEAT] ✓ Updated camera status in Firebase lobby (${cameraId})`, 'info');
         } catch(e) {
-            log(`Heartbeat failed: ${e.message}`, 'warn');
+            log(`[HEARTBEAT] ✗ Heartbeat failed: ${e.message}`, 'warn');
         }
     }
 
-    let lastKnownRequestKeys = new Set();
-    const sessionStartTime = Date.now() - 5000;
+    const handledRequestKeys = new Set();
 
     async function pollSignalingRequests() {
+        pollCount++;
+        if (pollCount % 15 === 0) {
+            log(`[POLL] Actively listening on signaling/${cameraId}_lobby/requests... (Poll #${pollCount})`, 'info');
+        }
+
         try {
-            const res = await fetch(`${FIREBASE_BASE_URL}/${cameraId}_lobby/requests.json?orderBy="$key"&limitToLast=5`);
-            if (!res.ok) return;
+            const res = await fetch(`${FIREBASE_BASE_URL}/${cameraId}_lobby/requests.json?orderBy="$key"&limitToLast=10`);
+            if (!res.ok) {
+                if (pollCount % 10 === 0) log(`[POLL] Firebase requests HTTP ${res.status}`, 'warn');
+                return;
+            }
             const data = await res.json();
             if (!data) return;
 
             for (const key of Object.keys(data)) {
-                if (!lastKnownRequestKeys.has(key)) {
-                    lastKnownRequestKeys.add(key);
+                if (!handledRequestKeys.has(key)) {
+                    handledRequestKeys.add(key);
                     const req = data[key];
-                    if (req && req.viewerId && req.timestamp >= sessionStartTime) {
-                        log(`Incoming connection request from viewer: ${req.viewerId}`, 'info');
+                    if (req && req.viewerId) {
+                        playViewerAlert();
+                        viewerAlertBanner.style.display = 'block';
+                        viewerAlertBanner.textContent = `👁️ VIEWER DETECTED: ${req.viewerId}`;
+                        setTimeout(() => { viewerAlertBanner.style.display = 'none'; }, 4000);
+
+                        log(`🚨 [INCOMING VIEWER] New join request from '${req.viewerId}'!`, 'success');
                         handleNewViewer(req.viewerId);
                     }
                 }
             }
         } catch(e) {
-            // Ignore temporary network polling blips
+            // Network blips
         }
     }
 
     async function handleNewViewer(viewerId) {
         if (activeViewerId === viewerId && peerConnection && peerConnection.connectionState === 'connected') {
-            log(`Viewer ${viewerId} is already connected.`, 'info');
+            log(`[WEBRTC] Viewer ${viewerId} is already connected.`, 'info');
             return;
         }
 
         activeViewerId = viewerId;
-        log(`Negotiating WebRTC handshake for viewer: ${viewerId}`, 'info');
+        log(`[WEBRTC] Initiating WebRTC Handshake for viewer '${viewerId}'...`, 'info');
 
         if (peerConnection) {
             peerConnection.close();
@@ -648,11 +771,12 @@
         try {
             const stream = canvas.captureStream(25);
             stream.getTracks().forEach(track => pc.addTrack(track, stream));
+            log(`[WEBRTC] Canvas stream attached to PeerConnection (25 FPS).`, 'info');
         } catch(e) {}
 
         // Listen for incoming DataChannel created by Android viewer ('dtech-data')
         pc.ondatachannel = (event) => {
-            log(`Remote DataChannel received: '${event.channel.label}'`, 'info');
+            log(`[DATACHANNEL] Remote DataChannel received from phone: '${event.channel.label}'`, 'success');
             setupDataChannel(event.channel);
         };
 
@@ -671,24 +795,26 @@
                         method: 'PUT',
                         body: JSON.stringify(candidateMsg)
                     });
+                    log(`[ICE] Sent local candidate (${cand.sdpMid}) to signaling/${viewerId}_responses`, 'info');
                 } catch(e) {}
             }
         };
 
         pc.onconnectionstatechange = () => {
-            log(`PeerConnection state -> ${pc.connectionState}`, pc.connectionState === 'connected' ? 'info' : 'warn');
+            log(`[WEBRTC] PeerConnection State -> ${pc.connectionState.toUpperCase()}`, pc.connectionState === 'connected' ? 'success' : 'warn');
             statPeerState.textContent = pc.connectionState.toUpperCase();
             if (pc.connectionState === 'connected') {
                 statPeerState.style.color = "#3fb950";
-                playBeep(1200, 0.1);
+                playBeep(1200, 0.15);
             } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
                 statPeerState.style.color = "#f85149";
             }
         };
 
         // Poll for viewer's incoming Offer in Firebase
+        log(`[SIGNALING] Waiting for WebRTC Offer from signaling/${viewerId}.json...`, 'info');
         let offerFound = false;
-        for (let attempt = 0; attempt < 15; attempt++) {
+        for (let attempt = 1; attempt <= 20; attempt++) {
             try {
                 const res = await fetch(`${FIREBASE_BASE_URL}/${viewerId}.json`);
                 const messages = await res.json();
@@ -697,8 +823,9 @@
                         const item = messages[msgKey];
                         if (item && item.type === 'offer' && item.sdp) {
                             offerFound = true;
-                            log(`Received SDP Offer from Android Viewer!`, 'info');
+                            log(`[SIGNALING] ✓ Received SDP Offer from phone! (SDP length: ${item.sdp.length})`, 'success');
                             await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: item.sdp }));
+                            log(`[WEBRTC] setRemoteDescription applied. Generating Answer...`, 'info');
 
                             // Generate Answer
                             const answer = await pc.createAnswer();
@@ -713,19 +840,21 @@
                                     senderId: cameraId
                                 })
                             });
-                            log(`✓ WebRTC SDP Answer posted to signaling/${viewerId}_responses`, 'info');
+                            log(`[SIGNALING] ✓ WebRTC SDP Answer posted to signaling/${viewerId}_responses`, 'success');
                             break;
                         }
                     }
                 }
-            } catch(e) {}
+            } catch(e) {
+                log(`[SIGNALING] Attempt ${attempt} check error: ${e.message}`, 'warn');
+            }
 
             if (offerFound) break;
-            await new Promise(r => setTimeout(r, 600));
+            await new Promise(r => setTimeout(r, 500));
         }
 
         if (!offerFound) {
-            log(`Timed out waiting for Offer from viewer ${viewerId}`, 'warn');
+            log(`[SIGNALING] ✗ Timed out waiting for Offer from viewer ${viewerId}. Please retry on phone.`, 'err');
         }
     }
 
@@ -735,14 +864,14 @@
         statDcState.style.color = channel.readyState === 'open' ? "#3fb950" : "#d29922";
 
         channel.onopen = () => {
-            log(`✓ DataChannel '${channel.label}' OPEN! Starting binary JPEG streaming...`, 'info');
+            log(`[DATACHANNEL] ✓ DataChannel '${channel.label}' OPEN! Transmitting 25 FPS JPEG stream...`, 'success');
             statDcState.textContent = "OPEN (STREAMING)";
             statDcState.style.color = "#3fb950";
-            playBeep(950, 0.1);
+            playBeep(950, 0.12);
         };
 
         channel.onclose = () => {
-            log(`DataChannel '${channel.label}' closed.`, 'warn');
+            log(`[DATACHANNEL] DataChannel '${channel.label}' closed.`, 'warn');
             statDcState.textContent = "CLOSED";
             statDcState.style.color = "#8b949e";
         };
@@ -750,7 +879,7 @@
         channel.onmessage = (event) => {
             if (typeof event.data === 'string') {
                 const cmd = event.data.trim();
-                log(`[COMMAND RECEIVED] -> "${cmd}"`, 'info');
+                log(`[COMMAND RECEIVED] ➔ "${cmd}"`, 'success');
 
                 if (cmd === "CMD:NOT_HOME_ON") {
                     isArmed = true;
@@ -772,13 +901,17 @@
     }
 
     // --- User Actions ---
+    document.getElementById('btnPingFirebase').addEventListener('click', () => {
+        testFirebasePing();
+    });
+
     document.getElementById('btnUpdateCameraId').addEventListener('click', () => {
         const val = cameraIdInput.value.trim();
         if (val) {
             cameraId = val;
             updateQR(cameraId);
-            log(`Camera ID updated to '${cameraId}'. Re-broadcasting lobby...`, 'info');
-            writeHeartbeat();
+            log(`[SYSTEM] Camera ID updated to '${cameraId}'. Re-broadcasting lobby...`, 'info');
+            testFirebasePing();
         }
     });
 
@@ -792,9 +925,9 @@
                 isWebcam = true;
                 btn.textContent = "💻 Switch to Synthetic Sensor";
                 overlayText.textContent = "PHYSICAL WEBCAM FEED: 640x480";
-                log("Switched video source to live webcam.", 'info');
+                log("[SENSOR] Switched video source to physical webcam.", 'info');
             } catch(e) {
-                log(`Webcam access failed: ${e.message}`, 'err');
+                log(`[SENSOR] Webcam access failed: ${e.message}`, 'err');
             }
         } else {
             if (webcamStream) {
@@ -804,17 +937,17 @@
             isWebcam = false;
             btn.textContent = "📷 Switch to Real Webcam";
             overlayText.textContent = "EMULATED SENSOR: 640x480 @ 25 FPS";
-            log("Switched video source back to synthetic OV5640 pattern.", 'info');
+            log("[SENSOR] Switched video source back to synthetic OV5640 pattern.", 'info');
         }
     });
 
     document.getElementById('btnSimulateMotion').addEventListener('click', () => {
-        log("⚡ Motion event triggered on simulated sensor!", 'warn');
+        log("[SENSOR] ⚡ Motion event triggered on simulated sensor!", 'warn');
         playBeep(1600, 0.15);
         if (dataChannel && dataChannel.readyState === 'open') {
             try {
                 dataChannel.send("EVENT:MOTION_DETECTED");
-                log("Dispatched 'EVENT:MOTION_DETECTED' alert over DataChannel.", 'info');
+                log("[DATACHANNEL] Dispatched 'EVENT:MOTION_DETECTED' alert over DataChannel.", 'info');
             } catch(e) {}
         }
     });
@@ -826,10 +959,10 @@
     // --- Initialize ---
     updateQR(cameraId);
     renderSyntheticFrame();
-    writeHeartbeat();
+    testFirebasePing();
     setInterval(writeHeartbeat, 15000);
-    setInterval(pollSignalingRequests, 1200);
-    log(`Lobby online at Firebase: signaling/${cameraId}_lobby`, 'info');
+    setInterval(pollSignalingRequests, 1000);
+    log(`[INIT] Lobby target: signaling/${cameraId}_lobby`, 'info');
 </script>
 
 </body>
