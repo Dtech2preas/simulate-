@@ -109,7 +109,7 @@
 
         @media (min-width: 900px) {
             .main-layout {
-                grid-template-columns: 1.4fr 1fr;
+                grid-template-columns: 1.35fr 1fr;
             }
         }
 
@@ -119,6 +119,7 @@
             border-radius: 10px;
             padding: 18px;
             box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            margin-bottom: 16px;
         }
 
         .video-box {
@@ -243,6 +244,18 @@
             background-color: #2ea043;
         }
 
+        button.preset-btn {
+            padding: 4px 10px;
+            font-size: 11px;
+            font-family: monospace;
+        }
+
+        button.preset-btn.active {
+            background-color: var(--accent-blue);
+            color: #fff;
+            border-color: #58a6ff;
+        }
+
         input[type="text"] {
             background: var(--bg-primary);
             border: 1px solid var(--border-color);
@@ -252,6 +265,28 @@
             font-size: 13px;
             font-family: monospace;
             flex: 1;
+        }
+
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 8px;
+        }
+
+        .slider-row input[type="range"] {
+            flex: 1;
+            accent-color: var(--accent-blue);
+            cursor: pointer;
+        }
+
+        .slider-val {
+            font-family: monospace;
+            font-size: 13px;
+            font-weight: bold;
+            color: var(--accent-blue);
+            min-width: 55px;
+            text-align: right;
         }
 
         .qr-section {
@@ -275,8 +310,8 @@
 
         .qr-box img {
             display: block;
-            width: 150px;
-            height: 150px;
+            width: 140px;
+            height: 140px;
         }
 
         .stats-grid {
@@ -356,7 +391,7 @@
 <div class="status-strip">
     <div class="status-indicator">
         <div class="status-dot" id="signalingDot"></div>
-        <span id="signalingStatusText">Testing Firebase Realtime DB connection...</span>
+        <span id="signalingStatusText">Connecting to Firebase Realtime DB...</span>
     </div>
     <div style="display:flex; gap:8px;">
         <button id="btnPingFirebase" style="padding:4px 10px; font-size:11px;">
@@ -366,93 +401,137 @@
 </div>
 
 <div class="main-layout">
-    <!-- Left Column: Video Feed & Source Switcher -->
-    <div class="card">
-        <h3 style="margin-bottom: 10px; color: #58a6ff; font-size: 16px;">Live Sensor Stream (OV5640 Emulation)</h3>
+    <!-- Left Column: Video Feed & Performance Controls -->
+    <div>
+        <div class="card">
+            <h3 style="margin-bottom: 10px; color: #58a6ff; font-size: 16px;">Live Sensor Stream (OV5640 Emulation)</h3>
 
-        <div class="video-box">
-            <canvas id="cameraCanvas" width="640" height="480"></canvas>
-            <video id="webcamVideo" autoplay playsinline muted style="display:none;"></video>
+            <div class="video-box">
+                <canvas id="cameraCanvas" width="640" height="480"></canvas>
+                <video id="webcamVideo" autoplay playsinline muted style="display:none;"></video>
 
-            <div class="video-overlay-badge">
-                <div class="live-dot" id="liveDot"></div>
-                <span id="overlayText">EMULATED SENSOR: 640x480 @ 25 FPS</span>
+                <div class="video-overlay-badge">
+                    <div class="live-dot" id="liveDot"></div>
+                    <span id="overlayText">EMULATED SENSOR: 640x480</span>
+                </div>
+
+                <div class="viewer-alert-banner" id="viewerAlertBanner">
+                    👁️ VIEWER DETECTED!
+                </div>
+
+                <div class="armed-banner" id="armedBanner">
+                    ⚠️ MOTION DETECTION ARMED — NOT HOME MODE ACTIVE ⚠️
+                </div>
             </div>
 
-            <div class="viewer-alert-banner" id="viewerAlertBanner">
-                👁️ VIEWER DETECTED!
-            </div>
-
-            <div class="armed-banner" id="armedBanner">
-                ⚠️ MOTION DETECTION ARMED — NOT HOME MODE ACTIVE ⚠️
+            <div class="controls-row">
+                <button id="btnToggleSource" class="primary">
+                    📷 Switch to Real Webcam
+                </button>
+                <button id="btnSimulateMotion">
+                    ⚡ Simulate Motion Event
+                </button>
+                <button id="btnClearLogs">
+                    🧹 Clear Log
+                </button>
             </div>
         </div>
 
-        <div class="controls-row">
-            <button id="btnToggleSource" class="primary">
-                📷 Switch to Real Webcam
-            </button>
-            <button id="btnSimulateMotion">
-                ⚡ Simulate Motion Event
-            </button>
-            <button id="btnClearLogs">
-                🧹 Clear Log
-            </button>
+        <!-- Framerate & Quality Tuner (Solves buffer lag & tests ESP32 bounds) -->
+        <div class="card">
+            <h3 style="margin-bottom: 8px; color: #58a6ff; font-size: 15px;">⚙️ Stream Performance & Framerate Control</h3>
+            <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">
+                Simulate different ESP32-S3 processing limits to test how the Android app handles low vs fast framerates.
+            </p>
+
+            <div style="margin-bottom: 12px;">
+                <label style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase;">
+                    Target Framerate (FPS):
+                </label>
+                <div class="slider-row">
+                    <input type="range" id="fpsRange" min="5" max="30" step="1" value="25" />
+                    <span class="slider-val" id="fpsValDisplay">25 FPS</span>
+                </div>
+                <!-- Quick Presets -->
+                <div style="display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;">
+                    <button class="preset-btn" data-fps="5">5 FPS (Battery Saver)</button>
+                    <button class="preset-btn" data-fps="10">10 FPS (ESP32 Standard)</button>
+                    <button class="preset-btn" data-fps="15">15 FPS (Optimal)</button>
+                    <button class="preset-btn active" data-fps="25">25 FPS (Smooth)</button>
+                </div>
+            </div>
+
+            <div>
+                <label style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase;">
+                    JPEG Compression Quality:
+                </label>
+                <div class="slider-row">
+                    <input type="range" id="qualityRange" min="30" max="85" step="5" value="65" />
+                    <span class="slider-val" id="qualityValDisplay">65%</span>
+                </div>
+                <div style="font-size: 11px; color: #8b949e; margin-top: 4px;" id="frameSizeEst">
+                    Estimated Frame Size: ~16 KB/frame • Real-Time Zero-Latency Dropping: Active
+                </div>
+            </div>
         </div>
 
         <!-- Terminal Logs -->
-        <h4 style="margin-top: 16px; font-size: 12px; color: var(--text-secondary); text-transform: uppercase;">
-            Simulated Device Serial Console (Live)
-        </h4>
-        <div class="terminal" id="terminalLog">
-            <div class="log-line log-info">[SYSTEM] D-TECH ESP32-S3 Camera Node Simulator starting up...</div>
+        <div class="card">
+            <h4 style="font-size: 12px; color: var(--text-secondary); text-transform: uppercase;">
+                Simulated Device Serial Console (Live)
+            </h4>
+            <div class="terminal" id="terminalLog">
+                <div class="log-line log-info">[SYSTEM] D-TECH ESP32-S3 Camera Node Simulator starting up...</div>
+            </div>
         </div>
     </div>
 
     <!-- Right Column: Pairing QR, Signaling & Metrics -->
-    <div class="card">
-        <h3 style="margin-bottom: 10px; color: #58a6ff; font-size: 16px;">Device Identity & Android Pairing</h3>
+    <div>
+        <div class="card">
+            <h3 style="margin-bottom: 10px; color: #58a6ff; font-size: 16px;">Device Identity & Android Pairing</h3>
 
-        <label style="font-size: 11px; color: var(--text-secondary); display: block; margin-bottom: 4px;">Camera Device ID:</label>
-        <div style="display: flex; gap: 8px;">
-            <input type="text" id="cameraIdInput" value="camera_123" spellcheck="false" />
-            <button id="btnUpdateCameraId">Update</button>
-        </div>
+            <label style="font-size: 11px; color: var(--text-secondary); display: block; margin-bottom: 4px;">Camera Device ID:</label>
+            <div style="display: flex; gap: 8px;">
+                <input type="text" id="cameraIdInput" value="camera_123" spellcheck="false" />
+                <button id="btnUpdateCameraId">Update</button>
+            </div>
 
-        <div class="qr-section">
-            <span style="font-size: 12px; font-weight: 600;">Scan with D-TECH Android Viewer App</span>
-            <div class="qr-box">
-                <img id="qrImage" src="" alt="D-TECH Pairing QR Code" />
+            <div class="qr-section">
+                <span style="font-size: 12px; font-weight: 600;">Scan with D-TECH Android Viewer App</span>
+                <div class="qr-box">
+                    <img id="qrImage" src="" alt="D-TECH Pairing QR Code" />
+                </div>
+                <span style="font-size: 12px; color: var(--text-secondary); font-family: monospace;" id="qrPayloadText">DTECH_SIM:camera_123</span>
+                <span style="font-size: 11px; color: #8b949e; margin-top: 4px;">Point the viewer app scanner at this QR code</span>
             </div>
-            <span style="font-size: 12px; color: var(--text-secondary); font-family: monospace;" id="qrPayloadText">DTECH_SIM:camera_123</span>
-            <span style="font-size: 11px; color: #8b949e; margin-top: 4px;">Point the viewer app scanner at this QR code</span>
-        </div>
 
-        <!-- Realtime Telemetry -->
-        <div class="stats-grid">
-            <div class="stat-item">
-                <div class="stat-label">WebRTC Peer State</div>
-                <div class="stat-val" id="statPeerState" style="color: #8b949e; font-size: 14px;">DISCONNECTED</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-label">DataChannel (dtech-data)</div>
-                <div class="stat-val" id="statDcState" style="color: #8b949e; font-size: 14px;">CLOSED</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-label">Stream Framerate</div>
-                <div class="stat-val" id="statFps">0 FPS</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-label">Frames Sent</div>
-                <div class="stat-val" id="statFrames">0</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-label">Data Rate</div>
-                <div class="stat-val" id="statBitrate">0 kbps</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-label">Alarm Mode</div>
-                <div class="stat-val" id="statAlarmMode" style="color: #3fb950; font-size: 14px;">DISARMED</div>
+            <!-- Realtime Telemetry -->
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-label">WebRTC Peer State</div>
+                    <div class="stat-val" id="statPeerState" style="color: #8b949e; font-size: 14px;">DISCONNECTED</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">DataChannel (dtech-data)</div>
+                    <div class="stat-val" id="statDcState" style="color: #8b949e; font-size: 14px;">CLOSED</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Live Framerate</div>
+                    <div class="stat-val" id="statFps">0 FPS</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Frames Sent (Dropped)</div>
+                    <div class="stat-val" id="statFrames">0 (0)</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Data Rate</div>
+                    <div class="stat-val" id="statBitrate">0 kbps</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Alarm Mode</div>
+                    <div class="stat-val" id="statAlarmMode" style="color: #3fb950; font-size: 14px;">DISARMED</div>
+                </div>
             </div>
         </div>
     </div>
@@ -466,6 +545,12 @@
     let webcamStream = null;
     let isArmed = false;
 
+    // Framerate & Quality Configuration
+    let targetFps = 25;
+    let frameIntervalMs = 40; // 1000 / 25
+    let jpegQuality = 0.65;
+    let streamTimer = null;
+
     // WebRTC connection state
     let peerConnection = null;
     let dataChannel = null;
@@ -473,6 +558,7 @@
 
     // Metrics
     let framesSent = 0;
+    let droppedFrames = 0;
     let bytesSentLastSecond = 0;
     let currentFps = 0;
     let fpsCounter = 0;
@@ -491,6 +577,12 @@
     const qrImage = document.getElementById('qrImage');
     const qrPayloadText = document.getElementById('qrPayloadText');
     const cameraIdInput = document.getElementById('cameraIdInput');
+
+    const fpsRange = document.getElementById('fpsRange');
+    const fpsValDisplay = document.getElementById('fpsValDisplay');
+    const qualityRange = document.getElementById('qualityRange');
+    const qualityValDisplay = document.getElementById('qualityValDisplay');
+    const frameSizeEst = document.getElementById('frameSizeEst');
 
     const signalingDot = document.getElementById('signalingDot');
     const signalingStatusText = document.getElementById('signalingStatusText');
@@ -611,7 +703,7 @@
 
         ctx.fillStyle = "#58a6ff";
         ctx.font = "bold 13px monospace";
-        ctx.fillText(`D-TECH KR105 ESP32-S3 | CAM: ${cameraId.toUpperCase()}`, 12, 21);
+        ctx.fillText(`D-TECH KR105 ESP32-S3 | CAM: ${cameraId.toUpperCase()} [${targetFps} FPS]`, 12, 21);
 
         // Right side OSD: Timestamp & Frame #
         const now = new Date();
@@ -650,9 +742,18 @@
         requestAnimationFrame(renderSyntheticFrame);
     }
 
-    // --- DataChannel Frame Transmission Loop (25 FPS JPEG Streaming) ---
-    setInterval(() => {
+    // --- Dynamic Framerate & Quality Transmission Loop with Zero-Latency Dropping ---
+    function sendSingleFrame() {
         if (!dataChannel || dataChannel.readyState !== 'open') return;
+
+        // ZERO-LATENCY BUFFER CONTROL:
+        // If dataChannel has queued up unsent data (network congested), DROP this frame
+        // so the video never lags behind real time!
+        if (dataChannel.bufferedAmount > 65536) { // 64 KB queue threshold
+            droppedFrames++;
+            statFrames.textContent = `${framesSent} (${droppedFrames})`;
+            return;
+        }
 
         canvas.toBlob((blob) => {
             if (!blob || !dataChannel || dataChannel.readyState !== 'open') return;
@@ -660,14 +761,23 @@
                 try {
                     dataChannel.send(buffer);
                     framesSent++;
-                    statFrames.textContent = framesSent.toString();
+                    statFrames.textContent = `${framesSent} (${droppedFrames})`;
                     bytesSentLastSecond += buffer.byteLength;
+                    frameSizeEst.textContent = `Avg Frame: ~${Math.round(buffer.byteLength / 1024 * 10) / 10} KB • Zero-Latency Buffer Policy: Active`;
                 } catch(e) {
                     console.error("DataChannel send error:", e);
                 }
             });
-        }, 'image/jpeg', 0.65);
-    }, 40);
+        }, 'image/jpeg', jpegQuality);
+    }
+
+    function restartStreamTimer() {
+        if (streamTimer) clearInterval(streamTimer);
+        frameIntervalMs = Math.round(1000 / targetFps);
+        streamTimer = setInterval(sendSingleFrame, frameIntervalMs);
+        log(`[FPS CONTROL] Stream rate set to ${targetFps} FPS (${frameIntervalMs}ms interval)`, 'info');
+        overlayText.textContent = `SENSOR: 640x480 @ ${targetFps} FPS`;
+    }
 
     // --- Firebase REST Signaling & Connectivity Verification ---
     async function testFirebasePing() {
@@ -718,18 +828,23 @@
 
         try {
             const res = await fetch(`${FIREBASE_BASE_URL}/${cameraId}_lobby/requests.json?orderBy="$key"&limitToLast=10`);
-            if (!res.ok) {
-                if (pollCount % 10 === 0) log(`[POLL] Firebase requests HTTP ${res.status}`, 'warn');
-                return;
-            }
+            if (!res.ok) return;
             const data = await res.json();
             if (!data) return;
+
+            const now = Date.now();
 
             for (const key of Object.keys(data)) {
                 if (!handledRequestKeys.has(key)) {
                     handledRequestKeys.add(key);
                     const req = data[key];
                     if (req && req.viewerId) {
+                        // Ignore stale requests older than 45 seconds from previous tests!
+                        if (req.timestamp && Math.abs(now - req.timestamp) > 45000) {
+                            log(`[POLL] Ignored stale session request (${req.viewerId}, age: ${Math.round((now - req.timestamp)/1000)}s)`, 'warn');
+                            continue;
+                        }
+
                         playViewerAlert();
                         viewerAlertBanner.style.display = 'block';
                         viewerAlertBanner.textContent = `👁️ VIEWER DETECTED: ${req.viewerId}`;
@@ -769,9 +884,9 @@
 
         // Add Video Track from Canvas capture stream so RTP viewers also receive it
         try {
-            const stream = canvas.captureStream(25);
+            const stream = canvas.captureStream(targetFps);
             stream.getTracks().forEach(track => pc.addTrack(track, stream));
-            log(`[WEBRTC] Canvas stream attached to PeerConnection (25 FPS).`, 'info');
+            log(`[WEBRTC] Canvas stream attached to PeerConnection (${targetFps} FPS).`, 'info');
         } catch(e) {}
 
         // Listen for incoming DataChannel created by Android viewer ('dtech-data')
@@ -864,16 +979,18 @@
         statDcState.style.color = channel.readyState === 'open' ? "#3fb950" : "#d29922";
 
         channel.onopen = () => {
-            log(`[DATACHANNEL] ✓ DataChannel '${channel.label}' OPEN! Transmitting 25 FPS JPEG stream...`, 'success');
+            log(`[DATACHANNEL] ✓ DataChannel '${channel.label}' OPEN! Transmitting ${targetFps} FPS JPEG stream...`, 'success');
             statDcState.textContent = "OPEN (STREAMING)";
             statDcState.style.color = "#3fb950";
             playBeep(950, 0.12);
+            restartStreamTimer();
         };
 
         channel.onclose = () => {
             log(`[DATACHANNEL] DataChannel '${channel.label}' closed.`, 'warn');
             statDcState.textContent = "CLOSED";
             statDcState.style.color = "#8b949e";
+            if (streamTimer) { clearInterval(streamTimer); streamTimer = null; }
         };
 
         channel.onmessage = (event) => {
@@ -900,7 +1017,31 @@
         };
     }
 
-    // --- User Actions ---
+    // --- User Actions & FPS Tuning ---
+    fpsRange.addEventListener('input', (e) => {
+        targetFps = parseInt(e.target.value, 10);
+        fpsValDisplay.textContent = `${targetFps} FPS`;
+        document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+        restartStreamTimer();
+    });
+
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            targetFps = parseInt(btn.dataset.fps, 10);
+            fpsRange.value = targetFps;
+            fpsValDisplay.textContent = `${targetFps} FPS`;
+            document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            restartStreamTimer();
+        });
+    });
+
+    qualityRange.addEventListener('input', (e) => {
+        jpegQuality = parseInt(e.target.value, 10) / 100;
+        qualityValDisplay.textContent = `${Math.round(jpegQuality * 100)}%`;
+        log(`[QUALITY CONTROL] JPEG compression quality set to ${Math.round(jpegQuality * 100)}%`, 'info');
+    });
+
     document.getElementById('btnPingFirebase').addEventListener('click', () => {
         testFirebasePing();
     });
@@ -924,7 +1065,7 @@
                 await webcamVideo.play();
                 isWebcam = true;
                 btn.textContent = "💻 Switch to Synthetic Sensor";
-                overlayText.textContent = "PHYSICAL WEBCAM FEED: 640x480";
+                overlayText.textContent = `PHYSICAL WEBCAM: 640x480 @ ${targetFps} FPS`;
                 log("[SENSOR] Switched video source to physical webcam.", 'info');
             } catch(e) {
                 log(`[SENSOR] Webcam access failed: ${e.message}`, 'err');
@@ -936,7 +1077,7 @@
             }
             isWebcam = false;
             btn.textContent = "📷 Switch to Real Webcam";
-            overlayText.textContent = "EMULATED SENSOR: 640x480 @ 25 FPS";
+            overlayText.textContent = `EMULATED SENSOR: 640x480 @ ${targetFps} FPS`;
             log("[SENSOR] Switched video source back to synthetic OV5640 pattern.", 'info');
         }
     });
@@ -959,6 +1100,7 @@
     // --- Initialize ---
     updateQR(cameraId);
     renderSyntheticFrame();
+    restartStreamTimer();
     testFirebasePing();
     setInterval(writeHeartbeat, 15000);
     setInterval(pollSignalingRequests, 1000);
