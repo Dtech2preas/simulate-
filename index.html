@@ -1271,6 +1271,18 @@
                     statAlarmMode.style.color = "#3fb950";
                     log("✓ Motion Detection DISARMED. Normal standby.", 'info');
                     playBeep(600, 0.25);
+                } else if (cmd === "CMD:ENABLE_OTA") {
+                    log("🔒 [SECURITY] OTA Server enabled on HTTP port 80 for 5 minutes.", 'warn');
+                    playBeep(1000, 0.15);
+                    if (dataChannel && dataChannel.readyState === 'open') {
+                        dataChannel.send("ACK:ENABLE_OTA:PORT=80,TIMEOUT=300");
+                    }
+                } else if (cmd === "CMD:DISABLE_OTA") {
+                    log("🔒 [SECURITY] OTA Server disabled.", 'info');
+                    playBeep(600, 0.15);
+                    if (dataChannel && dataChannel.readyState === 'open') {
+                        dataChannel.send("ACK:DISABLE_OTA");
+                    }
                 } else if (cmd.startsWith("CMD:CONFIG:")) {
                     const params = cmd.substring("CMD:CONFIG:".length);
                     const configMap = {};
