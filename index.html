@@ -727,6 +727,25 @@
             ctx.fillText("● SYSTEM READY: DISARMED (HOME MODE)", 12, h - 10);
         }
 
+        // Visual Motion Bounding Box Overlay
+        if (activeDetectedBox && (Date.now() - activeDetectedBox.time < 1200)) {
+            const bx = activeDetectedBox.x * w;
+            const by = activeDetectedBox.y * h;
+            const bw = activeDetectedBox.w * w;
+            const bh = activeDetectedBox.h * h;
+
+            ctx.strokeStyle = isArmed ? "#f85149" : "#3fb950";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(bx, by, bw, bh);
+
+            ctx.fillStyle = isArmed ? "rgba(248, 81, 73, 0.15)" : "rgba(63, 185, 80, 0.15)";
+            ctx.fillRect(bx, by, bw, bh);
+
+            ctx.fillStyle = isArmed ? "#f85149" : "#3fb950";
+            ctx.font = "bold 10px monospace";
+            ctx.fillText("TARGET DETECTED", bx + 4, Math.max(12, by - 4));
+        }
+
         // Frame counter calculation
         fpsCounter++;
         const nowMs = Date.now();
@@ -826,10 +845,12 @@
         });
     }
 
+    let activeDetectedBox = null;
+
     function checkOpticalMotion() {
         if (!isArmed) return;
         const now = Date.now();
-        if (now - lastMotionCheckTime < 350) return; // Sample ~3 times/second
+        if (now - lastMotionCheckTime < 300) return; // Sample ~3.3 times/second
         lastMotionCheckTime = now;
 
         try {
@@ -842,14 +863,50 @@
 
             if (lastSampleData) {
                 let diff = 0;
-                for (let i = 0; i < currentData.length; i += 4) {
-                    diff += Math.abs(currentData[i] - lastSampleData[i]) +
-                            Math.abs(currentData[i+1] - lastSampleData[i+1]) +
-                            Math.abs(currentData[i+2] - lastSampleData[i+2]);
+                let changedCells = 0;
+                let minX = 16, minY = 12, maxX = -1, maxY = -1;
+
+                for (let y = 0; y < 12; y++) {
+                    for (let x = 0; x < 16; x++) {
+                        const idx = (y * 16 + x) * 4;
+                        const cellDiff = Math.abs(currentData[idx] - lastSampleData[idx]) +
+                                         Math.abs(currentData[idx+1] - lastSampleData[idx+1]) +
+                                         Math.abs(currentData[idx+2] - lastSampleData[idx+2]);
+                        diff += cellDiff;
+                        if (cellDiff > 42) {
+                            changedCells++;
+                            if (x < minX) minX = x;
+                            if (x > maxX) maxX = x;
+                            if (y < minY) minY = y;
+                            if (y > maxY) maxY = y;
+                        }
+                    }
                 }
-                // When armed, if significant optical change occurs (movement across field of view)
-                if (diff > 1600) {
-                    triggerMotionEvent(isWebcam ? "Webcam Optical Motion" : "Simulated Sensor Movement");
+
+                // If motion localized to a set of cells, compute normalized bounding box
+                if (changedCells >= 2 && diff > 750 && minX <= maxX && minY <= maxY) {
+                    const normX = Math.max(0, minX / 16.0).toFixed(3);
+                    const normY = Math.max(0, minY / 12.0).toFixed(3);
+                    const normW = Math.min(1.0 - normX, (maxX - minX + 1) / 16.0).toFixed(3);
+                    const normH = Math.min(1.0 - normY, (maxY - minY + 1) / 12.0).toFixed(3);
+
+                    activeDetectedBox = {
+                        x: parseFloat(normX),
+                        y: parseFloat(normY),
+                        w: parseFloat(normW),
+                        h: parseFloat(normH),
+                        time: now
+                    };
+
+                    if (dataChannel && dataChannel.readyState === 'open') {
+                        try {
+                            dataChannel.send(`EVENT:MOTION_BOX:${normX},${normY},${normW},${normH}`);
+                        } catch(e) {}
+                    }
+
+                    if (diff > 1400) {
+                        triggerMotionEvent(isWebcam ? "Webcam Optical Motion" : "Simulated Sensor Movement");
+                    }
                 }
             }
             lastSampleData = currentData;
@@ -1271,6 +1328,18 @@
                     statAlarmMode.style.color = "#3fb950";
                     log("✓ Motion Detection DISARMED. Normal standby.", 'info');
                     playBeep(600, 0.25);
+                } else if (cmd === "CMD:RECORD_START") {
+                    log("🎬 [STORAGE NODE] Remote recording STARTED! Storing video frames to NVR storage.", 'warn');
+                    playBeep(1100, 0.15);
+                    if (dataChannel && dataChannel.readyState === 'open') {
+                        dataChannel.send("ACK:RECORD_START");
+                    }
+                } else if (cmd === "CMD:RECORD_STOP") {
+                    log("⏹ [STORAGE NODE] Remote recording STOPPED! Clip finalized and saved to NVR storage.", 'success');
+                    playBeep(700, 0.15);
+                    if (dataChannel && dataChannel.readyState === 'open') {
+                        dataChannel.send("ACK:RECORD_STOP");
+                    }
                 } else if (cmd === "CMD:ENABLE_OTA") {
                     log("🔒 [SECURITY] OTA Server enabled on HTTP port 80 for 5 minutes.", 'warn');
                     playBeep(1000, 0.15);
